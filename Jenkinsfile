@@ -48,18 +48,18 @@ pipeline {
                         mkdir -p "$WORKSPACE/.tools"
                         if [ ! -x "$NODE_DIR/bin/node" ]; then
                             cd "$WORKSPACE/.tools"
-                            rm -rf node "node-v${NODE_VERSION}-linux-x64" "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            rm -rf node "node-v${NODE_VERSION}-linux-x64" "node-v${NODE_VERSION}-linux-x64.tar.gz"
                             if command -v curl >/dev/null 2>&1; then
-                                curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+                                curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz"
                             elif command -v wget >/dev/null 2>&1; then
-                                wget -q "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+                                wget -q "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz"
                             else
                                 echo "ERROR: neither curl nor wget is available to download Node."
                                 exit 1
                             fi
-                            tar -xf "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            tar -xzf "node-v${NODE_VERSION}-linux-x64.tar.gz"
                             mv "node-v${NODE_VERSION}-linux-x64" node
-                            rm -f "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            rm -f "node-v${NODE_VERSION}-linux-x64.tar.gz"
                         fi
                         "$NODE_DIR/bin/node" --version
                         "$NODE_DIR/bin/npm" --version
