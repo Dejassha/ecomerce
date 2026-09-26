@@ -45,6 +45,9 @@ pipeline {
                         echo "Node not found. Installing Node 22 locally..."
                         NODE_VERSION="22.22.1"
                         NODE_DIR="$WORKSPACE/.tools/node"
+                        # npm's shebang is `#!/usr/bin/env node`, so node must
+                        # be on PATH in THIS shell before calling npm.
+                        export PATH="$NODE_DIR/bin:$PATH"
                         mkdir -p "$WORKSPACE/.tools"
                         if [ ! -x "$NODE_DIR/bin/node" ]; then
                             cd "$WORKSPACE/.tools"
@@ -61,8 +64,8 @@ pipeline {
                             mv "node-v${NODE_VERSION}-linux-x64" node
                             rm -f "node-v${NODE_VERSION}-linux-x64.tar.gz"
                         fi
-                        "$NODE_DIR/bin/node" --version
-                        "$NODE_DIR/bin/npm" --version
+                        node --version
+                        npm --version
                     '''
                     env.PATH = "${env.WORKSPACE}/.tools/node/bin:${env.PATH}"
                     echo "Node on PATH: ${env.WORKSPACE}/.tools/node/bin"
