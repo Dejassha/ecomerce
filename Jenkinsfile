@@ -27,6 +27,50 @@ pipeline {
             }
         }
 
+        stage('Setup Node') {
+            steps {
+                script {
+                    // Jenkins agents (e.g. jenkins/jenkins:lts Docker) often
+                    // have no Node.js. Install Node 22 locally in the
+                    // workspace when missing so later stages can use it.
+                    // Persists via env.PATH for all subsequent stages.
+                    sh '''
+                        set -e
+                        if command -v node >/dev/null 2>&1; then
+                            echo "Node already available:"
+                            node --version
+                            npm --version
+                            exit 0
+                        fi
+                        echo "Node not found. Installing Node 22 locally..."
+                        NODE_VERSION="22.22.1"
+                        NODE_DIR="$WORKSPACE/.tools/node"
+                        mkdir -p "$WORKSPACE/.tools"
+                        if [ ! -x "$NODE_DIR/bin/node" ]; then
+                            cd "$WORKSPACE/.tools"
+                            rm -rf node "node-v${NODE_VERSION}-linux-x64" "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            if command -v curl >/dev/null 2>&1; then
+                                curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            elif command -v wget >/dev/null 2>&1; then
+                                wget -q "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            else
+                                echo "ERROR: neither curl nor wget is available to download Node."
+                                exit 1
+                            fi
+                            tar -xf "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                            mv "node-v${NODE_VERSION}-linux-x64" node
+                            rm -f "node-v${NODE_VERSION}-linux-x64.tar.xz"
+                        fi
+                        "$NODE_DIR/bin/node" --version
+                        "$NODE_DIR/bin/npm" --version
+                    '''
+                    env.PATH = "${env.WORKSPACE}/.tools/node/bin:${env.PATH}"
+                    echo "Node on PATH: ${env.WORKSPACE}/.tools/node/bin"
+                    sh 'node --version; npm --version'
+                }
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 script {
@@ -140,18 +184,22 @@ pipeline {
 
                     echo "Deploying to:"
                     echo "${DEPLOY_PATH}"
-
-                    if ! command -v rsync >/dev/null 2>&1; then
-                        echo "ERROR: rsync is not installed in the Jenkins runtime."
-                        exit 1
-                    fi
-
-                    echo "Using:"
-                    rsync --version | head -1
+                    echo "NOTE: this path is inside the Jenkins container"
+                    echo "unless it is mounted to the host."
 
                     echo "Synchronizing files..."
 
-                    rsync -av --delete dist/ "${DEPLOY_PATH}/"
+                    if command -v rsync >/dev/null 2>&1; then
+                        echo "Using:"
+                        rsync --version | head -1
+                        rsync -av --delete dist/ "${DEPLOY_PATH}/"
+                    else
+                        echo "WARNING: rsync not found, falling back to cp."
+                        mkdir -p "${DEPLOY_PATH}"
+                        # rm old files to mimic --delete, then copy
+                        rm -rf "${DEPLOY_PATH:?}/"*
+                        cp -a dist/. "${DEPLOY_PATH}/"
+                    fi
 
                     echo "Deployment completed successfully."
                 '''
