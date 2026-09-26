@@ -8,6 +8,11 @@ async function handle(res) {
   return res.json();
 }
 
+
+
+
+
+
 export const api = {
   getProducts: (category) =>
     fetch(`${BASE}/products${category && category !== "All" ? `?category=${encodeURIComponent(category)}` : ""}`).then(handle),
