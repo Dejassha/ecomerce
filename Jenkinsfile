@@ -11,9 +11,11 @@ pipeline {
     environment {
         NODE_ENV = "production"
 
+        // Local deploy target (served / proxied to this path)
         DEPLOY_PATH = "/home/dejassha/Projects/jenkins/ecommerce"
 
-        ENV_CREDENTIAL_ID = "dynamic-stamping-env"
+        // Frontend .env Jenkins credential (backend uses "ecommerce-backend")
+        ENV_CREDENTIAL_ID = "ecommerce-frontend"
     }
 
     stages {
@@ -21,34 +23,51 @@ pipeline {
         stage('Checkout') {
             steps {
                 cleanWs()
-
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                withCredentials([
-                    file(
-                        credentialsId: "${ENV_CREDENTIAL_ID}",
-                        variable: 'ENV_FILE'
-                    )
-                ]) {
+                script {
+                    // Optional .env from Jenkins credentials.
+                    // Does not fail the build if the credential is missing —
+                    // falls back to the .env committed in the repo.
+                    try {
+                        withCredentials([
+                            file(
+                                credentialsId: "${ENV_CREDENTIAL_ID}",
+                                variable: 'ENV_FILE'
+                            )
+                        ]) {
+                            sh '''
+                                set -e
+                                if [ -f "$ENV_FILE" ]; then
+                                    echo "Copying Jenkins environment file..."
+                                    cp "$ENV_FILE" .env
+                                fi
+                            '''
+                        }
+                    } catch (err) {
+                        echo "WARNING: credential '${ENV_CREDENTIAL_ID}' not found. Using repo .env as fallback."
+                    }
+
                     sh '''
                         set -e
 
                         echo "Node version:"
                         node --version
-
-                        echo "pnpm version:"
-                        pnpm --version
-
-                        echo "Copying Jenkins environment file..."
-                        cp "$ENV_FILE" .env
-
+                        echo "npm version:"
+                        npm --version
 
                         echo "Installing dependencies..."
-                        pnpm install --frozen-lockfile
+                        if [ -f "package-lock.json" ]; then
+                            # Repo uses npm (package-lock.json exists, no pnpm-lock.yaml).
+                            # npm ci is deterministic and fails fast on lock mismatch.
+                            npm ci
+                        else
+                            npm install
+                        fi
 
                         echo "Dependencies installed successfully."
                     '''
@@ -61,15 +80,13 @@ pipeline {
                 sh '''
                     set -e
 
-                    echo "Running ESLint..."
-
-                    if pnpm run lint; then
+                    echo "Checking for lint script..."
+                    if node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.lint ? 0 : 1)"; then
+                        echo "Running lint..."
+                        npm run lint
                         echo "Lint passed."
                     else
-                        echo ""
-                        echo "WARNING: ESLint reported errors/warnings."
-                        echo "WARNING: Continuing with production build."
-                        echo ""
+                        echo "No lint script defined in package.json. Skipping."
                     fi
                 '''
             }
@@ -82,17 +99,21 @@ pipeline {
 
                     echo "Building production application..."
 
-                    pnpm run build
+                    npm run build
 
                     if [ ! -d "dist" ]; then
                         echo "ERROR: dist directory was not generated."
                         exit 1
                     fi
 
+                    if [ ! -f "dist/index.html" ]; then
+                        echo "ERROR: dist/index.html was not generated."
+                        exit 1
+                    fi
+
                     echo ""
                     echo "Build completed successfully."
                     echo ""
-
                     echo "Build output:"
                     ls -lh dist
 
@@ -107,43 +128,36 @@ pipeline {
             steps {
                 sh '''
                     set -e
-        
+
                     echo "Preparing deployment..."
-        
+
                     if [ ! -d "dist" ]; then
                         echo "ERROR: Build folder not found. Aborting."
                         exit 1
                     fi
-        
+
                     mkdir -p "${DEPLOY_PATH}"
-        
+
                     echo "Deploying to:"
                     echo "${DEPLOY_PATH}"
-        
+
                     if ! command -v rsync >/dev/null 2>&1; then
                         echo "ERROR: rsync is not installed in the Jenkins runtime."
                         exit 1
                     fi
-        
+
                     echo "Using:"
                     rsync --version | head -1
-        
+
                     echo "Synchronizing files..."
-        
-                    rsync -av \
-                        --delete \
-                        --no-perms \
-                        --no-group \
-                        --no-owner \
-                        --no-times \
-                        --omit-dir-times \
-                        dist/ \
-                        "${DEPLOY_PATH}/"
-        
+
+                    rsync -av --delete dist/ "${DEPLOY_PATH}/"
+
                     echo "Deployment completed successfully."
                 '''
             }
         }
+
         stage('Verify Deployment') {
             steps {
                 sh '''
