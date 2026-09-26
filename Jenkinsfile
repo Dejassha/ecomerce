@@ -46,6 +46,7 @@ pipeline {
                         echo "Copying Jenkins environment file..."
                         cp "$ENV_FILE" .env
 
+
                         echo "Installing dependencies..."
                         pnpm install --frozen-lockfile
 
