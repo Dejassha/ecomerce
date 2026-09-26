@@ -170,6 +170,9 @@ pipeline {
                     echo "Build size:"
                     du -sh dist
                 '''
+                // Keep a copy of the build on the Jenkins controller so
+                // dist/ is retrievable even if the deploy target is down.
+                archiveArtifacts artifacts: 'dist/**', fingerprint: true
             }
         }
 
