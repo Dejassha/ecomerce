@@ -9,8 +9,9 @@ pipeline {
     }
 
     environment {
-        NODE_ENV = "production"
-
+        // NOTE: do NOT set NODE_ENV=production globally — npm ci skips
+        // devDependencies (including vite) when it is set, which breaks
+        // the build. Production mode is set only for the Build step.
         // Local deploy target (served / proxied to this path)
         DEPLOY_PATH = "/home/dejassha/Projects/jenkins/ecommerce"
 
@@ -107,13 +108,14 @@ pipeline {
                         echo "npm version:"
                         npm --version
 
-                        echo "Installing dependencies..."
+                        echo "Installing dependencies (including devDependencies for build)..."
                         if [ -f "package-lock.json" ]; then
                             # Repo uses npm (package-lock.json exists, no pnpm-lock.yaml).
-                            # npm ci is deterministic and fails fast on lock mismatch.
-                            npm ci
+                            # --include=dev guards against NODE_ENV=production
+                            # being set globally on the Jenkins controller.
+                            npm ci --include=dev
                         else
-                            npm install
+                            npm install --include=dev
                         fi
 
                         echo "Dependencies installed successfully."
@@ -146,7 +148,7 @@ pipeline {
 
                     echo "Building production application..."
 
-                    npm run build
+                    NODE_ENV=production npm run build
 
                     if [ ! -d "dist" ]; then
                         echo "ERROR: dist directory was not generated."
