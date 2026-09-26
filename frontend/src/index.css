@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::selection {
+    background-color: #C79A45;
+    color: #241C15;
+  }
+  body {
+    background-color: #E5D1A8;
+  }
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid #3F5641;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-ink text-ivory px-6 py-3 text-sm tracking-wide transition-colors duration-200 hover:bg-pine-dark disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 border border-ink/30 text-ink px-6 py-3 text-sm tracking-wide transition-colors duration-200 hover:border-ink;
+  }
+  .field-label {
+    @apply block text-xs text-ink/60 mb-1.5;
+  }
+  .field-input {
+    @apply w-full bg-paper border border-line px-3.5 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:border-pine transition-colors;
+  }
+}
